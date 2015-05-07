@@ -1,6 +1,7 @@
 """Models and database functions for Ratings project."""
 
 from flask_sqlalchemy import SQLAlchemy
+from correlation import pearson
 
 # This is the connection to the SQLite database; we're getting this through
 # the Flask-SQLAlchemy helper library. On this, we can find the `session`
@@ -38,7 +39,6 @@ class Movie(db.Model):
     title = db.Column(db.String(50), nullable=False)
     released_at = db.Column(db.DateTime, nullable=False)
     imdb_url = db.Column(db.String(150), nullable=False)
-
 
     def __repr__(self):
         """Provide helpful representation when printed."""

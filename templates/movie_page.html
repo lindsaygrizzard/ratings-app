@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+
+    
+    <h2>
+      <a href="{{ movie.imdb_url }}">{{ movie.title }} </a>
+    </h2>
+    
+    <form action="/movies/{{ movie.movie_id }}" method="POST">
+      <label>Your Rating: 
+        <input type="radio" name="user_rating" value="1">1
+        <input type="radio" name="user_rating" value="2">2
+        <input type="radio" name="user_rating" value="3">3
+        <input type="radio" name="user_rating" value="4">4
+        <input type="radio" name="user_rating" value="5">5
+      </label>
+      <input type="submit" value="Submit">
+    </form>
+    
+    <h3>Ratings for Movie {{ movie.title }}:</h3>
+    <ul>
+      {% for rating in movie.ratings %}
+          <li>
+              <a href="/users/{{ rating.user.user_id }}">
+                Stars:   {{ rating.score }} | Made by: {{ rating.user.user_id }}
+              </a>
+          </li>
+      {% endfor %}
+    </ul>
+
+{% endblock %}
