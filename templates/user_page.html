@@ -12,7 +12,7 @@
     <ul>
       {% for rating in user.ratings %}
           <li>
-              <a href="">
+              <a href="/movies/{{ rating.movie_id }}">
                 Title:  {{ rating.movie.title }} |  Stars:   {{ rating.score }}
               </a>
           </li>

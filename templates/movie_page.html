@@ -17,6 +17,15 @@
       <input type="submit" value="Submit">
     </form>
     
+    <p>Average rating: {{ average }} | Eye's rating {{ eye_rating }}</p>
+    {% if prediction %}
+        <p>We predict you will rate this movie {{ prediction }}.</p>
+    {% endif %}
+
+    {% if beratement %}
+      <p> {{ beratement }} </p>
+    {% endif %}
+
     <h3>Ratings for Movie {{ movie.title }}:</h3>
     <ul>
       {% for rating in movie.ratings %}

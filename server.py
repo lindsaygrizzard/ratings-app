@@ -29,7 +29,7 @@ def index():
 def user_list():
     """Show list of users.""" 
 
-    users = User.query.all()
+    users = User.query.order_by(User.user_id.desc()).all()
     return render_template("user_list.html", users=users)
 
 
@@ -47,7 +47,7 @@ def movie_list():
     """Show list of all movies in database"""
 
     # movies = Movie.query.order_by(Movie.title.asc()).all()
-    movies = Movie.query.all()
+    movies = Movie.query.limit(50).all()
 
     return render_template("movies.html", movies=movies)
 
@@ -57,35 +57,105 @@ def movie_page(movie_id):
     """Show more information about a single user.""" 
     
     movie = Movie.query.get(movie_id)
+    existing_rating = None 
+    prediction = None
+    rating_scores = [r.score for r in movie.ratings]
+    avg_rating = float(sum(rating_scores)) / len(rating_scores)
 
-    if request.method == "POST":
-        if 'email' in session:
+    # print "current session: ", session['email']
 
-            selected_rating = request.form['user_rating']
-
-            user_email = session['email']
-
-            user = User.query.filter_by(email=user_email).one()
-
+    if "email" in session: #if logged in
+        user_email = session['email']
+        user = User.query.filter_by(email=user_email).first()
+        if user:
             existing_rating = Rating.query.filter_by(movie_id=movie_id, user_id=user.user_id).first()
+            print "Existing rating: ", existing_rating
+    
+        if existing_rating: #if user logged in and has rated movie
 
-            if existing_rating == None:
-                selected_rating = Rating(movie_id = movie_id, user_id= user.user_id, score=int(selected_rating))
-                db.session.add(selected_rating)
-                db.session.commit()
+            if request.method == "POST": #if user hits submit 
+                print "user exists, rating exists, post request: ", prediction    
 
-            else:
+                selected_rating = request.form['user_rating']
                 update_rating = Rating.query.filter_by(movie_id=movie_id, user_id=user.user_id).first()
                 update_rating.score = int(selected_rating)
                 db.session.commit()
 
-            return render_template("movie_page.html", movie=movie)
-        
-        else:
-            flash('You need to log in before rating!')
-            redirect('/login')
-    
-    return render_template("movie_page.html", movie=movie)
+            else: # if they are on page and has rated movie (for debugging)
+                print "user exists, rating exists, get request: ", prediction    
+
+
+        elif user: # if user is logged in but has not rated movie
+            if request.method == "POST": #if user hits submit (prediction goes away)    
+                prediction = None
+                selected_rating = request.form['user_rating']
+                selected_rating = Rating(movie_id = movie_id, user_id= user.user_id, score=int(selected_rating))
+                db.session.add(selected_rating)
+                db.session.commit()
+            else:
+                print "A user when no rating exists: ", user
+                prediction = user.predict_rating(movie) #prediction made until they submit (see if above)
+                print "A prediction if no rating exists: ", prediction
+    else:
+        flash('You need to log in before rating!')
+        redirect('/login')
+
+
+
+    if prediction != None:
+        # User hasn't scored; use our prediction if we made one
+        users_cur_rating = prediction
+
+    elif existing_rating:
+        # User has already scored for real; use that
+        users_cur_rating = existing_rating.score
+
+    else:
+        # User hasn't scored, and we couldn't get a prediction
+        users_cur_rating = None
+
+    # Get the eye's rating, either by predicting or using real rating
+
+    the_eye = User.query.filter_by(email="the-eye@of-judgment.com").one()
+    eye_rating = Rating.query.filter_by(
+        user_id=the_eye.user_id, movie_id=movie.movie_id).first()
+
+    if eye_rating is None:
+        eye_rating = the_eye.predict_rating(movie)
+
+    else:
+        eye_rating = eye_rating.score
+
+    if eye_rating and users_cur_rating:
+        difference = abs(eye_rating - users_cur_rating)
+
+    else:
+        # We couldn't get an eye rating, so we'll skip difference
+        difference = None
+
+    BERATEMENT_MESSAGES = [
+        "I suppose you don't have such bad taste after all.",
+        "I regret every decision that I've ever made that has brought me" +
+            " to listen to your opinion.",
+        "Words fail me, as your taste in movies has clearly failed you.",
+        "That movie is great. For a clown to watch. Idiot.",
+        "Words cannot express the awfulness of your taste."
+    ]
+
+    if difference is not None:
+        beratement = BERATEMENT_MESSAGES[int(difference)]
+
+    else:
+        beratement = None
+
+
+    return render_template("movie_page.html", movie = movie, 
+                                            user_rating = existing_rating, 
+                                            average = avg_rating, 
+                                            prediction = prediction, 
+                                            beratement = beratement,
+                                            eye_rating = eye_rating
+                                            )
 
 
 
@@ -123,9 +193,9 @@ def process_signup():
                 db.session.add(new_user)
                 db.session.commit()
                 print 'creating new user in Database.'
-                print new_user, User.user_id
+                print new_user, new_user.user_id
                 session['email'] = entered_email
-                flash("You are signed up %s!") % session['email']
+                flash("You are signed up %s!" % entered_email) 
                 return redirect("/")
         else: 
             flash("You have already signed up with that email")
@@ -154,6 +224,9 @@ def process_login():
         session['email'] = request.form['email']
         flash('You successfully logged in as %s!' % session['email'])
         return redirect("/users/%s" % user.user_id)
+    else:
+        flash("That is not the correct password!")
+        return redirect('/login')
 
 ###################################
 
